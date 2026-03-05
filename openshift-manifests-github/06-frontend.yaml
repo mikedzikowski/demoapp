@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aspm-demo-frontend
+  namespace: aspm-demo
+  labels:
+    app: aspm-demo
+    component: frontend
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aspm-demo
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: aspm-demo
+        component: frontend
+        tier: application
+      annotations:
+        # ASPM annotations for discovery
+        aspm.demo/service-type: "web-frontend"
+        aspm.demo/internet-facing: "true"
+        aspm.demo/user-interface: "true"
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/mikedzikowski/demoapp/aspm-demo-frontend:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: NODE_ENV
+        - name: API_URL
+          value: "http://aspm-demo-backend:5000"
+        - name: PORT
+          value: "3000"
+
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+
+        # Security Context for OpenShift
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aspm-demo-frontend
+  namespace: aspm-demo
+  labels:
+    app: aspm-demo
+    component: frontend
+  annotations:
+    # Service annotations for ASPM discovery
+    aspm.demo/service-description: "Node.js Express web frontend"
+    aspm.demo/internet-facing: "true"
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: http
+  selector:
+    app: aspm-demo
+    component: frontend

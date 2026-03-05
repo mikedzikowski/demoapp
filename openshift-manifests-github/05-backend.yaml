@@ -1,0 +1,174 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aspm-demo-backend
+  namespace: aspm-demo
+  labels:
+    app: aspm-demo
+    component: backend
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aspm-demo
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: aspm-demo
+        component: backend
+        tier: application
+      annotations:
+        # ASPM annotations for discovery
+        aspm.demo/service-type: "api-backend"
+        aspm.demo/external-dependencies: "stripe,paypal,sendgrid,mixpanel,aws-s3"
+        aspm.demo/sensitive-data: "true"
+        aspm.demo/internet-facing: "false"
+    spec:
+      containers:
+      - name: backend
+        image: ghcr.io/mikedzikowski/demoapp/aspm-demo-backend:latest
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: DATABASE_URL
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: SECRET_KEY
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: FLASK_ENV
+        - name: PORT
+          value: "5000"
+
+        # External API Keys (for ASPM to detect)
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: STRIPE_SECRET_KEY
+        - name: PAYPAL_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: PAYPAL_CLIENT_ID
+        - name: PAYPAL_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: PAYPAL_CLIENT_SECRET
+        - name: SENDGRID_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: SENDGRID_API_KEY
+        - name: MIXPANEL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: MIXPANEL_TOKEN
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aspm-demo-secrets
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_DEFAULT_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: AWS_DEFAULT_REGION
+
+        # Redis Configuration
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: REDIS_URL
+
+        # External Service URLs
+        - name: STRIPE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: STRIPE_API_URL
+        - name: PAYPAL_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: PAYPAL_API_URL
+        - name: SENDGRID_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aspm-demo-config
+              key: SENDGRID_API_URL
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+
+        # Security Context for OpenShift
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aspm-demo-backend
+  namespace: aspm-demo
+  labels:
+    app: aspm-demo
+    component: backend
+  annotations:
+    # Service annotations for ASPM discovery
+    aspm.demo/service-description: "Python Flask API with external integrations"
+    aspm.demo/data-classification: "sensitive"
+spec:
+  ports:
+  - port: 5000
+    targetPort: 5000
+    name: http
+  selector:
+    app: aspm-demo
+    component: backend

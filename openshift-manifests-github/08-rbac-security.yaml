@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aspm-demo-sa
+  namespace: aspm-demo
+  annotations:
+    # ASPM annotations for service account analysis
+    aspm.demo/service-account: "application"
+    aspm.demo/privileged: "false"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aspm-demo-role
+  namespace: aspm-demo
+rules:
+# Minimal permissions for application operation
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+# Intentionally broad permissions for ASPM to detect security issue
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aspm-demo-rolebinding
+  namespace: aspm-demo
+subjects:
+- kind: ServiceAccount
+  name: aspm-demo-sa
+  namespace: aspm-demo
+roleRef:
+  kind: Role
+  name: aspm-demo-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Security Context Constraints (OpenShift-specific)
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: aspm-demo-scc
+  annotations:
+    # ASPM annotations for security context analysis
+    aspm.demo/security-context: "restricted"
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+fsGroup:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+    max: 65535
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+- ALL
+runAsUser:
+  type: MustRunAsRange
+  uidRangeMin: 1000
+  uidRangeMax: 65535
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+    max: 65535
+users:
+- system:serviceaccount:aspm-demo:aspm-demo-sa
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- persistentVolumeClaim
+- projected
+- secret

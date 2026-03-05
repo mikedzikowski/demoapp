@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aspm-demo
+  labels:
+    name: aspm-demo
+    purpose: aspm-security-demo
+  annotations:
+    description: "ASPM Demo Application - Multi-service containerized app for security scanning"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aspm-demo-config
+  namespace: aspm-demo
+data:
+  # Database Configuration
+  POSTGRES_DB: "aspm_demo"
+  POSTGRES_USER: "user"
+  DATABASE_URL: "postgresql://user:password@aspm-demo-database:5432/aspm_demo"
+
+  # Application Configuration
+  NODE_ENV: "production"
+  FLASK_ENV: "production"
+  API_URL: "http://aspm-demo-backend:5000"
+
+  # External Service URLs (for ASPM to detect dependencies)
+  STRIPE_API_URL: "https://api.stripe.com"
+  PAYPAL_API_URL: "https://api-m.sandbox.paypal.com"
+  SENDGRID_API_URL: "https://api.sendgrid.com"
+  MIXPANEL_API_URL: "https://api.mixpanel.com"
+  GITHUB_API_URL: "https://api.github.com"
+  AWS_DEFAULT_REGION: "us-west-2"
+  S3_BUCKET_NAME: "aspm-demo-bucket"
+
+  # Redis Configuration
+  REDIS_URL: "redis://:redis_password@aspm-demo-redis:6379/0"
+
+  # Logging and Monitoring
+  LOG_LEVEL: "INFO"
+  DEMO_MODE: "true"
+  SIMULATE_EXTERNAL_CALLS: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aspm-demo-secrets
+  namespace: aspm-demo
+type: Opaque
+stringData:
+  # Database Password
+  POSTGRES_PASSWORD: "password"
+
+  # Application Secrets
+  SECRET_KEY: "aspm-demo-secret-key-12345"
+  JWT_SECRET: "jwt-signing-key-demo"
+  ENCRYPTION_KEY: "aes-256-encryption-key-demo"
+
+  # Third-Party API Keys (dummy values for ASPM detection)
+  STRIPE_SECRET_KEY: "sk_test_dummy_stripe_key_12345"
+  STRIPE_PUBLISHABLE_KEY: "pk_test_dummy_stripe_key_12345"
+  PAYPAL_CLIENT_ID: "dummy_paypal_client_id"
+  PAYPAL_CLIENT_SECRET: "dummy_paypal_client_secret"
+  SENDGRID_API_KEY: "SG.dummy_sendgrid_api_key"
+  MIXPANEL_TOKEN: "dummy_mixpanel_token_12345"
+
+  # AWS Configuration (dummy values)
+  AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+  AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+  # Redis Password
+  REDIS_PASSWORD: "redis_password"
+
+  # Monitoring
+  SENTRY_DSN: "https://dummy@sentry.io/12345"
