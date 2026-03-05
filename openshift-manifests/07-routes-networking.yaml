@@ -1,0 +1,112 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: aspm-demo-frontend-route
+  namespace: aspm-demo
+  labels:
+    app: aspm-demo
+    component: frontend
+  annotations:
+    # ASPM annotations for external access detection
+    aspm.demo/internet-facing: "true"
+    aspm.demo/route-type: "public"
+    aspm.demo/tls-enabled: "false"
+spec:
+  to:
+    kind: Service
+    name: aspm-demo-frontend
+    weight: 100
+  port:
+    targetPort: http
+  # TLS termination intentionally disabled for ASPM to detect security issue
+  # tls:
+  #   termination: edge
+  wildcardPolicy: None
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: aspm-demo-backend-route
+  namespace: aspm-demo
+  labels:
+    app: aspm-demo
+    component: backend
+  annotations:
+    # ASPM annotations - API exposed to internet (security risk)
+    aspm.demo/internet-facing: "true"
+    aspm.demo/route-type: "api"
+    aspm.demo/sensitive-data-access: "true"
+    aspm.demo/tls-enabled: "false"
+spec:
+  to:
+    kind: Service
+    name: aspm-demo-backend
+    weight: 100
+  port:
+    targetPort: http
+  path: /api
+  # TLS termination intentionally disabled for ASPM to detect security issue
+  # tls:
+  #   termination: edge
+  wildcardPolicy: None
+---
+# NetworkPolicy to demonstrate network segmentation (ASPM will analyze this)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aspm-demo-network-policy
+  namespace: aspm-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: aspm-demo
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic within the namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: aspm-demo
+  # Allow traffic from OpenShift router
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+  # Allow external traffic to frontend (internet-facing)
+  - to:
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 5000
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow external API calls (ASPM will detect these dependencies)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS for external APIs
+    - protocol: TCP
+      port: 80   # HTTP for external APIs
+  # Allow database connections
+  - to:
+    - podSelector:
+        matchLabels:
+          component: database
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow Redis connections
+  - to:
+    - podSelector:
+        matchLabels:
+          component: redis
+    ports:
+    - protocol: TCP
+      port: 6379
